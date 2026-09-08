@@ -603,11 +603,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .kleur-chip{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); cursor:pointer; padding:0;}
   .kleur-chip.on{outline:2px solid var(--brass); outline-offset:2px;}
   .kleur-card{position:relative;}
-  .klant-view{gap:12px;}
-  .klant-canvas{width:100%; height:auto; border:1px solid var(--line); border-radius:12px; background:#f6f4ef;}
-  .klant-profiel{width:100%; display:flex; flex-direction:column; gap:8px; padding-top:6px; border-top:1px solid var(--line);}
-  .klant-profiel .prof-canvas{max-width:300px;}
-  .kleur-bar .tool.on{background:var(--ink); border-color:var(--ink); color:#fff;}
+  /* ---- Archief / modal / toast ---- */
+  .modal-overlay{position:fixed; inset:0; background:rgba(27,30,37,.55); z-index:200; display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto;}
+  .modal{background:var(--card); border-radius:16px; width:100%; max-width:640px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden;}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
+  .modal-head h2{margin:0; font-family:'Fraunces',serif; font-weight:600; font-size:18px;}
+  .modal-close{background:transparent; border:none; font-size:18px; cursor:pointer; color:var(--muted); padding:6px 10px;}
+  .modal-body{padding:18px 20px;}
+  .arch-search{width:100%; margin-bottom:14px; font-size:15px; padding:11px 12px; border:1px solid var(--line); border-radius:9px;}
+  .arch-search:focus{outline:none; border-color:var(--brass); box-shadow:0 0 0 3px rgba(176,129,90,.15);}
+  .arch-list{display:flex; flex-direction:column; gap:10px;}
+  .arch-empty{text-align:center; color:var(--muted); padding:26px 10px; line-height:1.6;}
+  .arch-item{border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .arch-badge{background:#faf4ee; color:var(--brass-dark); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:4px 8px; border-radius:6px;}
+  .arch-info{flex:1; min-width:140px;}
+  .arch-info .naam{font-weight:700; font-size:15px;}
+  .arch-info .meta{color:var(--muted); font-size:12.5px; margin-top:2px;}
+  .arch-actions{display:flex; gap:8px;}
+  .arch-open{background:var(--brass); color:#fff; border:none; border-radius:8px; padding:9px 14px; font-weight:600; font-size:13px; cursor:pointer;}
+  .arch-del{background:transparent; color:var(--danger); border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-weight:600; font-size:13px; cursor:pointer;}
+  .toast{position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:12px 20px; border-radius:10px; font-weight:600; font-size:14px; box-shadow:var(--shadow); opacity:0; transition:opacity .2s, transform .2s; z-index:300; pointer-events:none;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -620,6 +636,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <div class="actions">
     <button class="btn btn-ghost" onclick="addKozijn()">+ Kozijn</button>
     <button class="btn btn-ghost" onclick="openVoorbeelden()">Voorbeelden</button>
+    <button class="btn btn-ghost" onclick="openArchief()">📂 Archief</button>
+    <button class="btn btn-ghost" onclick="archiveSave()">Opslaan</button>
     <button class="btn btn-ghost" onclick="nieuw()">Nieuw</button>
     <button class="btn btn-ghost" onclick="printPdf()">Printen</button>
     <button class="btn btn-primary" onclick="savePdf()">PDF opslaan</button>
@@ -654,6 +672,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   <section class="panel">
     <div class="panel-head"><h2>Klantgegevens</h2><span class="tag">Klant</span></div>
     <div class="panel-body">
+      <div class="grid g2" style="margin-bottom:14px">
+        <label class="field">Opgeslagen klant <select id="klantKies" onchange="klantUse(this.value)"><option value="">— Kies opgeslagen klant —</option></select></label>
+        <div style="display:flex; align-items:flex-end;"><button class="tool" type="button" onclick="klantSave()">Klant opslaan</button></div>
+      </div>
       <div class="grid g2">
         <label class="field">Naam klant <input id="k_naam" placeholder="Naam"></label>
         <label class="field">Telefoon <input id="k_tel" placeholder="06 - ..."></label>
@@ -662,7 +684,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
         <label class="field">E-mail <input id="k_email" placeholder="naam@email.nl"></label>
         <div class="grid g2" style="gap:14px">
           <label class="field">Datum <input id="k_datum" type="date"></label>
-          <label class="field">Referentie <input id="k_ref"></label>
+          <label class="field">Bestelnummer <input id="k_ref"></label>
         </div>
       </div>
     </div>
@@ -925,9 +947,7 @@ function tplPen(){
     rect(x,y,w,h,s,c){ this.items.push({type:'rect',color:c||TPL_INK,size:s||4,x,y,w,h}); },
     line(x1,y1,x2,y2,s,c){ this.items.push({type:'line',color:c||TPL_INK,size:s||3,points:[{x:x1,y:y1},{x:x2,y:y2}]}); },
     txt(x,y,t,sz,c){ this.items.push({type:'text',x,y,text:t,color:c||TPL_INK,size:sz||20}); },
-    ctxt(cx,y,t,sz,c){ sz=sz||20; this.txt(cx-(String(t).length*sz*0.27), y, t, sz, c); },
-    glas:[], paneel:[], rooster:[], glasTop:[],
-    vlak(soort,x,y,w,h){ this[soort].push({x,y,w,h}); }
+    ctxt(cx,y,t,sz,c){ sz=sz||20; this.txt(cx-(String(t).length*sz*0.27), y, t, sz, c); }
   };
 }
 
@@ -938,7 +958,6 @@ function tplVak(g,x,y,w,h,kind,extra){
   const X1=x+i, Y1=y+i, X2=x+w-i, Y2=y+h-i;
   const cx=(X1+X2)/2, cy=(Y1+Y2)/2;
   if(open) g.rect(X1,Y1,X2-X1,Y2-Y1,3);
-  const gi = open ? 11 : 5;
   const S=2.2;
   function draaiL(){ g.line(X2,Y1,X1,cy,S,TPL_SYM); g.line(X2,Y2,X1,cy,S,TPL_SYM); }
   function draaiR(){ g.line(X1,Y1,X2,cy,S,TPL_SYM); g.line(X1,Y2,X2,cy,S,TPL_SYM); }
@@ -962,7 +981,6 @@ function tplVak(g,x,y,w,h,kind,extra){
   extra=extra||{};
   if(extra.paneel){                       // dicht paneel: arcering (netjes binnen het paneel)
     const rx=X1+10, ry=extra.paneel.y1, rw=(X2-X1)-20, rh=extra.paneel.y2-extra.paneel.y1;
-    g.vlak('paneel', rx, ry, rw, rh);
     g.rect(rx,ry,rw,rh,2,TPL_SOFT);
     const gap=26;
     for(let c=rx+ry+gap; c<rx+rw+ry+rh; c+=gap){
@@ -975,11 +993,6 @@ function tplVak(g,x,y,w,h,kind,extra){
     g.line(hx,cy-16,hx,cy+16,5,TPL_INK);
   }
   if(extra.label) g.ctxt(cx, Y1+10, extra.label, 18, TPL_SOFT);
-  if(!extra.geenGlas){
-    const gy1=Y1+gi;
-    const gy2=extra.paneel ? Math.min(Y2-gi, extra.paneel.y1-4) : Y2-gi;
-    if(gy2-gy1>10) g.vlak('glas', X1+gi, gy1, (X2-X1)-2*gi, gy2-gy1);
-  }
 }
 
 function tplDorpel(g,F,hoogte){            // onderdorpel deur
@@ -1071,21 +1084,20 @@ const TPLS=[
 
  /* ---------- Deuren ---------- */
  {id:'deur-dicht', cat:'Deuren', naam:'Voordeur dicht paneel', ratio:0.46, type:'Voordeur', uitvoering:'Dicht paneel',
-  draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-l',{kruk:'r',geenGlas:true,paneel:{y1:F.y+26,y2:F.y+F.h-12}}); tplDorpel(g,F,26); }},
+  draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-l',{kruk:'r',paneel:{y1:F.y+30,y2:F.y+F.h-40}}); tplDorpel(g,F,26); }},
  {id:'deur-halfglas', cat:'Deuren', naam:'Voordeur half glas', ratio:0.46, type:'Voordeur', uitvoering:'Half glas / half paneel',
   draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-l',{kruk:'r'});
     const m=F.y+F.h*0.5;
     g.line(F.x+9,m,F.x+F.w-9,m,3);
-    tplVak(g,F.x,m-9,F.w,F.h-(m-F.y)+9,'vast',{geenGlas:true,paneel:{y1:m+10,y2:F.y+F.h-12}});
+    tplVak(g,F.x,m-9,F.w,F.h-(m-F.y)+9,'vast',{paneel:{y1:m+16,y2:F.y+F.h-40}});
     tplDorpel(g,F,26); }},
  {id:'deur-glasstrook', cat:'Deuren', naam:'Voordeur met glasstrook', ratio:0.46, type:'Voordeur', uitvoering:'Glas bovenin',
-  draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-l',{kruk:'r',geenGlas:true,paneel:{y1:F.y+26,y2:F.y+F.h-12}});
+  draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-l',{kruk:'r'});
     g.rect(F.x+F.w*0.30,F.y+42,F.w*0.34,F.h*0.52,2.4,TPL_SOFT);
-    g.vlak('glasTop', F.x+F.w*0.30, F.y+42, F.w*0.34, F.h*0.52);
     tplDorpel(g,F,26); }},
  {id:'deur-zijlicht', cat:'Deuren', naam:'Voordeur + zijlicht', ratio:0.85, type:'Voordeur', uitvoering:'Met zijlicht',
   draw:(g,F)=>{ const d=F.w*0.62;
-    tplVak(g,F.x,F.y,d,F.h,'draai-l',{kruk:'r',paneel:{y1:F.y+F.h*0.55,y2:F.y+F.h-12}});
+    tplVak(g,F.x,F.y,d,F.h,'draai-l',{kruk:'r',paneel:{y1:F.y+F.h*0.55,y2:F.y+F.h-40}});
     g.line(F.x+d,F.y,F.x+d,F.y+F.h,4);
     tplVak(g,F.x+d,F.y,F.w-d,F.h,'vast',{label:'zijlicht'});
     tplDorpel(g,F,26); }},
@@ -1094,7 +1106,7 @@ const TPLS=[
     tplVak(g,F.x,F.y,F.w,t,'vast',{label:'bovenlicht'});
     g.line(F.x,F.y+t,F.x+F.w,F.y+t,4);
     const F2={x:F.x,y:F.y+t,w:F.w,h:F.h-t};
-    tplVak(g,F2.x,F2.y,d,F2.h,'draai-l',{kruk:'r',paneel:{y1:F2.y+F2.h*0.55,y2:F2.y+F2.h-12}});
+    tplVak(g,F2.x,F2.y,d,F2.h,'draai-l',{kruk:'r',paneel:{y1:F2.y+F2.h*0.55,y2:F2.y+F2.h-40}});
     g.line(F2.x+d,F2.y,F2.x+d,F2.y+F2.h,4);
     tplVak(g,F2.x+d,F2.y,F2.w-d,F2.h,'vast',{label:'zijlicht'});
     tplDorpel(g,F,26); }},
@@ -1102,7 +1114,7 @@ const TPLS=[
   draw:(g,F)=>{ tplVak(g,F.x,F.y,F.w,F.h,'draai-r',{kruk:'l'});
     const m=F.y+F.h*0.42;
     g.line(F.x+9,m,F.x+F.w-9,m,3);
-    tplVak(g,F.x,m-9,F.w,F.h-(m-F.y)+9,'vast',{geenGlas:true,paneel:{y1:m+10,y2:F.y+F.h-12}});
+    tplVak(g,F.x,m-9,F.w,F.h-(m-F.y)+9,'vast',{paneel:{y1:m+16,y2:F.y+F.h-40}});
     tplDorpel(g,F,26); }},
  {id:'tuindeuren', cat:'Deuren', naam:'Tuindeuren (openslaand)', ratio:1.0, type:'Tuindeuren', uitvoering:'Volledig glas',
   draw:(g,F)=>{ const w=F.w/2;
@@ -1128,7 +1140,6 @@ const TPLS=[
 ];
 
 function tplRooster(g,x,y,w,h){        // ventilatierooster bovenin
-  g.vlak('rooster', x+3, y+3, w-6, h-6);
   g.rect(x+3,y+3,w-6,h-6,2.4);
   const n=Math.max(5, Math.round(w/40));
   for(let k=1;k<n;k++){ const px=x+3+(w-6)*k/n; g.line(px,y+7,px,y+h-7,1.5,TPL_SOFT); }
@@ -1165,11 +1176,6 @@ function tplBuild(tpl, aspect, bmm, hmm, opts){
   tpl.draw(inner,F);
   const kern = opts.spiegel ? tplSpiegel(inner.items, F.x+F.w/2) : inner.items;
   kern.forEach(it=>g.items.push(it));
-  const mc=F.x+F.w/2;
-  const mir=r=>({x:2*mc-(r.x+r.w), y:r.y, w:r.w, h:r.h});
-  inner.glas.forEach(r=>g.glas.push(opts.spiegel?mir(r):r));
-  inner.paneel.forEach(r=>g.paneel.push(opts.spiegel?mir(r):r));
-  inner.glasTop.forEach(r=>g.glasTop.push(opts.spiegel?mir(r):r));
   let naam=tpl.naam;
   if(opts.spiegel){
     naam = /links|rechts/i.test(naam)
@@ -1181,9 +1187,7 @@ function tplBuild(tpl, aspect, bmm, hmm, opts){
   g.txt(14,6,naam,22,TPL_SOFT);
   if(bmm>0) g.ctxt(geo.x+geo.w/2, geo.y+geo.h+12, bmm+' mm', 22);
   if(hmm>0) g.txt(8, geo.y+geo.h/2-11, hmm+' mm', 20);
-  const out=g.items;
-  out.geo=geo; out.glas=g.glas; out.paneel=g.paneel; out.rooster=g.rooster; out.glasTop=g.glasTop;
-  return out;
+  return g.items;
 }
 
 /* ---- miniatuur tekenen ---- */
@@ -1300,7 +1304,6 @@ function tplApply(kozId, tplId, opts){
 function tplOpt(kozId, key){
   const el=document.getElementById(kozId);
   if(key==='opnieuw'){ openTpl(kozId); return; }
-  if(key==='klant'){ klantView(kozId); return; }
   let st=null; try{ st=JSON.parse(el.dataset.tpl||'null'); }catch(e){}
   if(!st){ openTpl(kozId); return; }
   st.opts=st.opts||{};
@@ -1640,171 +1643,6 @@ function profFotoRenderGrid(grid){
   fotoRenderGrid(grid);           /* daarna je eigen foto's + toevoegen-knop */
 }
 
-/* ============ Klantweergave: het kozijn zoals het wordt ============ */
-function schaduw(hex,f){                 // kleur donkerder maken
-  const r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16), b=parseInt(hex.substr(5,2),16);
-  return 'rgb('+Math.round(r*f)+','+Math.round(g*f)+','+Math.round(b*f)+')';
-}
-function klantTeken(canvas, data, hex, breed){
-  breed=breed||1200;
-  const s=breed/LW, H=Math.round(LH*s);
-  canvas.width=breed; canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,breed,H);
-  ctx.scale(s,s);
-  const geo=data.geo;
-
-  /* kozijn- en vleugelprofiel als vlak in de kleur */
-  const gr=ctx.createLinearGradient(geo.x,geo.y,geo.x+geo.w,geo.y+geo.h);
-  gr.addColorStop(0, schaduw(hex,1.06)); gr.addColorStop(0.55, hex); gr.addColorStop(1, schaduw(hex,0.86));
-  ctx.fillStyle=gr;
-  ctx.fillRect(geo.x,geo.y,geo.w,geo.h);
-
-  /* glas */
-  (data.glas||[]).forEach(r=>{
-    const g2=ctx.createLinearGradient(r.x,r.y,r.x+r.w,r.y+r.h);
-    g2.addColorStop(0,'#d7e2ea'); g2.addColorStop(0.5,'#c2d1dc'); g2.addColorStop(1,'#aebecb');
-    ctx.fillStyle=g2; ctx.fillRect(r.x,r.y,r.w,r.h);
-    ctx.save();                              /* spiegeling */
-    ctx.beginPath(); ctx.rect(r.x,r.y,r.w,r.h); ctx.clip();
-    ctx.globalAlpha=0.26; ctx.fillStyle='#ffffff';
-    ctx.beginPath();
-    ctx.moveTo(r.x-10, r.y+r.h*0.92); ctx.lineTo(r.x+r.w*0.62, r.y-10);
-    ctx.lineTo(r.x+r.w*0.84, r.y-10); ctx.lineTo(r.x+r.w*0.10, r.y+r.h+10);
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle='rgba(27,30,37,.30)'; ctx.lineWidth=1.6;
-    ctx.strokeRect(r.x,r.y,r.w,r.h);
-  });
-
-  /* dichte panelen */
-  (data.paneel||[]).forEach(r=>{
-    ctx.fillStyle=schaduw(hex,0.92); ctx.fillRect(r.x,r.y,r.w,r.h);
-    ctx.strokeStyle=schaduw(hex,0.7); ctx.lineWidth=2.4;
-    ctx.strokeRect(r.x+7,r.y+7,r.w-14,r.h-14);
-  });
-
-  /* ventilatierooster */
-  (data.rooster||[]).forEach(r=>{
-    ctx.fillStyle=schaduw(hex,0.88); ctx.fillRect(r.x,r.y,r.w,r.h);
-    ctx.strokeStyle=schaduw(hex,0.62); ctx.lineWidth=1.6;
-    const n=Math.max(6, Math.round(r.w/34));
-    for(let k=1;k<n;k++){
-      const px=r.x+r.w*k/n;
-      ctx.beginPath(); ctx.moveTo(px,r.y+5); ctx.lineTo(px,r.y+r.h-5); ctx.stroke();
-    }
-    ctx.strokeRect(r.x,r.y,r.w,r.h);
-  });
-
-  (data.glasTop||[]).forEach(r=>{
-    const g3=ctx.createLinearGradient(r.x,r.y,r.x+r.w,r.y+r.h);
-    g3.addColorStop(0,'#d7e2ea'); g3.addColorStop(1,'#aebecb');
-    ctx.fillStyle=g3; ctx.fillRect(r.x,r.y,r.w,r.h);
-    ctx.strokeStyle='rgba(27,30,37,.30)'; ctx.lineWidth=1.6; ctx.strokeRect(r.x,r.y,r.w,r.h);
-  });
-
-  /* profielranden: alleen de zwarte lijnen, geen symbolen of tekst */
-  ctx.strokeStyle=schaduw(hex,0.55);
-  ctx.lineCap='butt'; ctx.lineJoin='miter';
-  data.forEach(it=>{
-    if(it.type==='text' || it.color===TPL_SYM || it.color===TPL_SOFT) return;
-    ctx.lineWidth=Math.max(1.4, it.size*0.55);
-    if(it.type==='rect'){ ctx.strokeRect(it.x,it.y,it.w,it.h); return; }
-    const p=it.points; if(!p||p.length<2) return;
-    ctx.beginPath(); ctx.moveTo(p[0].x,p[0].y);
-    for(let i=1;i<p.length;i++) ctx.lineTo(p[i].x,p[i].y);
-    ctx.stroke();
-  });
-
-  /* krukken opnieuw, in metaalkleur */
-  data.forEach(it=>{
-    if(it.type!=='line' || it.size<4.5 || it.color!==TPL_INK) return;
-    const p=it.points;
-    ctx.strokeStyle='#9aa0a6'; ctx.lineWidth=6; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(p[0].x,p[0].y); ctx.lineTo(p[1].x,p[1].y); ctx.stroke();
-  });
-}
-
-function klantKleurVanVeld(el){
-  const v=(field(el,'kleur_buiten')||'').toLowerCase();
-  const hit=kleurenAlle().find(k=>k.naam.toLowerCase()===v);
-  return hit? hit.hex : '#f1f0ea';
-}
-
-let klantFoto='g9000a';
-function klantView(kozId, hex){
-  const el=document.getElementById(kozId);
-  let st=null; try{ st=JSON.parse(el.dataset.tpl||'null'); }catch(e){}
-  if(!st){ alert('Kies eerst een sjabloon, dan kan ik het kozijn in kleur laten zien.'); return; }
-  const tpl=TPLS.find(t=>t.id===st.id); if(!tpl) return;
-  const b=parseFloat(field(el,'breedte'))||0, h=parseFloat(field(el,'hoogte'))||0;
-  const aspect=(b>0&&h>0)? Math.min(Math.max(b/h,0.25),3.2) : tpl.ratio;
-  const data=tplBuild(tpl, aspect, 0, 0, st.opts||{});
-  const kleur = hex || klantKleurVanVeld(el);
-
-  document.getElementById('tplTitle').textContent='Zo ziet het eruit';
-  const m=document.getElementById('tplModal');
-  m.hidden=false; document.body.style.overflow='hidden';
-  document.getElementById('tplCats').innerHTML='';
-  const grid=document.getElementById('tplGrid');
-  grid.innerHTML='';
-
-  const w=document.createElement('div'); w.className='tpl-preview klant-view';
-  const c=document.createElement('canvas'); c.className='klant-canvas';
-  w.appendChild(c);
-  klantTeken(c, data, kleur);
-
-  const h4=document.createElement('h4');
-  h4.textContent=(field(el,'ruimte')||'Kozijn')+(b&&h?' - '+b+' x '+h+' mm':'');
-  w.appendChild(h4);
-  const sub=document.createElement('p');
-  const kn=kleurenAlle().find(k=>k.hex===kleur);
-  sub.textContent=[field(el,'type'), field(el,'materiaal'), field(el,'glas'), kn?kn.naam:''].filter(Boolean).join(' \u00b7 ');
-  w.appendChild(sub);
-
-  const bar=document.createElement('div'); bar.className='kleur-bar';
-  const lb=document.createElement('span'); lb.className='lb'; lb.textContent='Kleur buiten';
-  bar.appendChild(lb);
-  kleurenAlle().forEach(k=>{
-    const btn=document.createElement('button');
-    btn.type='button'; btn.className='kleur-chip'+(k.hex===kleur?' on':'');
-    btn.style.background=k.hex; btn.title=k.naam;
-    btn.onclick=()=>{
-      const veld=el.querySelector('[data-f="kleur_buiten"]');
-      if(veld){ veld.value=k.naam; saveSoon(); }
-      klantView(kozId, k.hex);
-    };
-    bar.appendChild(btn);
-  });
-  w.appendChild(bar);
-
-  /* het echte profiel in dezelfde kleur */
-  const ph=document.createElement('div'); ph.className='klant-profiel';
-  const pc=document.createElement('canvas'); pc.className='prof-canvas';
-  ph.appendChild(pc);
-  const keuze=document.createElement('div'); keuze.className='kleur-bar';
-  PROF_FOTOS.forEach(f=>{
-    const btn=document.createElement('button');
-    btn.type='button'; btn.className='tool'+(f.id===klantFoto?' on':'');
-    btn.textContent=f.naam.indexOf('zonder')>=0?'Zonder aanslag':'Met aanslag';
-    btn.onclick=()=>{ klantFoto=f.id; klantView(kozId, kleur); };
-    keuze.appendChild(btn);
-  });
-  ph.appendChild(keuze);
-  const pn=document.createElement('p'); pn.className='tpl-note';
-  const pf=PROF_FOTOS.find(f=>f.id===klantFoto);
-  pn.textContent='Het profiel dat hierbij hoort: '+(pf?pf.naam:'')+'. Kleuren op een scherm zijn een benadering, beslis op een echt RAL-staal.';
-  ph.appendChild(pn);
-  w.appendChild(ph);
-  if(pf) profFotoTint(pc, pf, kleur==='#f1f0ea'?null:kleur);
-
-  const back=document.createElement('button');
-  back.className='tool'; back.type='button'; back.textContent='Sluiten';
-  back.onclick=closeTpl;
-  w.appendChild(back);
-  grid.appendChild(w);
-}
-
 /* ============ Kozijn toevoegen ============ */
 let kozCount=0;
 const types=['Draaikiepraam','Vast glas','Draairaam','Valraam','Stolpraam','Bovenlicht','Zijlicht','Schuifpui','Hefschuifpui','Vouwwand','Voordeur','Achterdeur','Tuindeuren','Terrasdeur','Dakraam','Garagedeur','Anders'];
@@ -1857,7 +1695,6 @@ function addKozijn(data, restoring){
         <button class="tool" type="button" data-opt="spiegel">&#8646; Spiegelen</button>
         <button class="tool" type="button" data-opt="rooster">&#8801; Rooster</button>
         <button class="tool" type="button" data-opt="bovenlicht">&#9636; Bovenlicht</button>
-        <button class="tool" type="button" data-opt="klant">&#128065; Klantweergave</button>
         <button class="tool" type="button" data-opt="opnieuw">Ander sjabloon</button>
       </div>
       <div class="photo-row">
@@ -1975,7 +1812,7 @@ function buildPdf(){
   const klant=[val('k_naam'), val('k_adres'), val('k_plaats'), val('k_tel'), val('k_email')].filter(Boolean);
   const meta=[];
   if(val('k_datum')){ const d=val('k_datum').split('-'); meta.push('Datum: '+d[2]+'-'+d[1]+'-'+d[0]); }
-  if(val('k_ref')) meta.push((isOff?'Offertenr.: ':'Referentie: ')+val('k_ref'));
+  if(val('k_ref')) meta.push((isOff?'Offertenr.: ':'Bestelnr.: ')+val('k_ref'));
   if(isOff && val('o_geldig')){ const g=val('o_geldig').split('-'); meta.push('Geldig tot: '+g[2]+'-'+g[1]+'-'+g[0]); }
   const rows=Math.max(klant.length, meta.length);
   let by=y;
@@ -2299,20 +2136,24 @@ function collectState(){
 let _saveTimer=null;
 function saveState(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(collectState())); }catch(e){} }
 function saveSoon(){ clearTimeout(_saveTimer); _saveTimer=setTimeout(saveState, 600); }
-function loadState(){
-  let raw=null; try{ raw=localStorage.getItem(STORE_KEY); }catch(e){}
-  if(!raw) return false;
-  let st; try{ st=JSON.parse(raw); }catch(e){ return false; }
+function applyState(st){
   if(!st) return false;
   if(st.top){ Object.keys(st.top).forEach(id=>{ const e=document.getElementById(id); if(e && st.top[id]!=null) e.value=st.top[id]; }); }
+  const ex=document.getElementById('extraRegels'); if(ex) ex.innerHTML='';
   if(st.extras){ st.extras.forEach(x=>{ addExtra(); const rows=document.querySelectorAll('#extraRegels .extra-row'); const r=rows[rows.length-1]; r.querySelector('[data-e="oms"]').value=x.oms||''; r.querySelector('[data-e="bed"]').value=x.bed||''; }); }
   document.getElementById('kozijnen').innerHTML='';
   const list=(st.kozijnen&&st.kozijnen.length)?st.kozijnen:[null];
   list.forEach(k=>{ addKozijn(k||undefined, true); });
-  if(sigPad && st.sig) sigPad.setStrokes(st.sig);
+  if(sigPad){ sigPad.setStrokes(st.sig||[]); }
   setMode(st.mode==='offerte'?'offerte':'opname');
   recalc();
   return true;
+}
+function loadState(){
+  let raw=null; try{ raw=localStorage.getItem(STORE_KEY); }catch(e){}
+  if(!raw) return false;
+  let st; try{ st=JSON.parse(raw); }catch(e){ return false; }
+  return applyState(st);
 }
 function nieuw(){
   if(!confirm('Nieuwe opname starten? De huidige gegevens worden gewist.')) return;
@@ -2320,15 +2161,120 @@ function nieuw(){
   location.reload();
 }
 
+/* ============ Toast ============ */
+function toast(msg){
+  let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; t.className='toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ============ Archief (opgeslagen opnames/offertes) ============ */
+const ARCH_KEY='luxekozijn_archief_v1';
+function archGetAll(){ try{ return JSON.parse(localStorage.getItem(ARCH_KEY))||[]; }catch(e){ return []; } }
+function archSetAll(a){ try{ localStorage.setItem(ARCH_KEY, JSON.stringify(a)); return true; }catch(e){ toast('Opslag vol — verwijder een paar oude bestellingen'); return false; } }
+function archiveSave(){
+  const st=collectState();
+  const naam=(st.top.k_naam||'').trim()||'Zonder naam';
+  const ref=(st.top.k_ref||'').trim();
+  const bedrag = st.mode==='offerte' ? getTotals().tot : null;
+  const rec={ id:'a'+Date.now(), ts:Date.now(), naam, ref, mode:st.mode, bedrag, aantal:st.kozijnen.length, state:st };
+  const all=archGetAll();
+  const i = ref ? all.findIndex(r=>r.ref===ref && r.ref!=='') : -1;
+  if(i>-1){ rec.id=all[i].id; all[i]=rec; } else { all.push(rec); }
+  if(archSetAll(all)){ klantSaveSilent(); toast(ref?('Opgeslagen · bestelnr. '+ref):'Opgeslagen in archief'); }
+}
+function archiveOpen(id){
+  const rec=archGetAll().find(r=>r.id===id);
+  if(!rec) return;
+  applyState(rec.state);
+  saveState();
+  closeArchief();
+  toast('Geopend: '+rec.naam);
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function archiveDelete(id){
+  if(!confirm('Deze opslag verwijderen?')) return;
+  archSetAll(archGetAll().filter(r=>r.id!==id));
+  renderArchief();
+}
+function renderArchief(q){
+  const box=document.getElementById('archiefLijst');
+  const zoekEl=document.getElementById('archiefZoek');
+  q=((q!=null?q:(zoekEl?zoekEl.value:''))||'').trim().toLowerCase();
+  let all=archGetAll().sort((a,b)=>b.ts-a.ts);
+  if(q){ all=all.filter(r=> (r.ref||'').toLowerCase().indexOf(q)>-1 || (r.naam||'').toLowerCase().indexOf(q)>-1 ); }
+  if(!all.length){ box.innerHTML='<div class="arch-empty">'+(q?'Niets gevonden voor \u201c'+esc(q)+'\u201d.':'Nog niets opgeslagen.<br>Maak een opname en tik bovenaan op \u201cOpslaan\u201d.')+'</div>'; return; }
+  box.innerHTML=all.map(r=>{
+    const d=new Date(r.ts);
+    const datum=('0'+d.getDate()).slice(-2)+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+d.getFullYear();
+    const badge = r.mode==='offerte' ? '<span class="arch-badge">Offerte</span>' : '<span class="arch-badge" style="background:#eef0ee;color:#5a5f66;">Opname</span>';
+    const bedr = (r.mode==='offerte' && r.bedrag!=null) ? ' · '+euro(r.bedrag) : '';
+    const meta = (r.ref?'nr. '+r.ref+' · ':'')+datum+' · '+(r.aantal||0)+' kozijn'+((r.aantal===1)?'':'en')+bedr;
+    return `<div class="arch-item">${badge}<div class="arch-info"><div class="naam">${esc(r.naam)}</div><div class="meta">${esc(meta)}</div></div><div class="arch-actions"><button class="arch-open" onclick="archiveOpen('${r.id}')">Openen</button><button class="arch-del" onclick="archiveDelete('${r.id}')">Verwijderen</button></div></div>`;
+  }).join('');
+}
+function openArchief(){ const z=document.getElementById('archiefZoek'); if(z) z.value=''; renderArchief(''); document.getElementById('archiefModal').hidden=false; }
+function closeArchief(){ document.getElementById('archiefModal').hidden=true; }
+
+/* ============ Klanten ============ */
+const KLANT_KEY='luxekozijn_klanten_v1';
+function klantGetAll(){ try{ return JSON.parse(localStorage.getItem(KLANT_KEY))||[]; }catch(e){ return []; } }
+function klantSetAll(a){ try{ localStorage.setItem(KLANT_KEY, JSON.stringify(a)); return true; }catch(e){ return false; } }
+function val2(id){ const e=document.getElementById(id); return e?e.value:''; }
+function klantSaveSilent(){
+  const naam=(document.getElementById('k_naam').value||'').trim();
+  if(!naam) return;
+  const rec={ naam, tel:val2('k_tel'), adres:val2('k_adres'), plaats:val2('k_plaats'), email:val2('k_email') };
+  const all=klantGetAll();
+  const i=all.findIndex(k=>k.naam.toLowerCase()===naam.toLowerCase());
+  if(i>-1) all[i]=rec; else all.push(rec);
+  klantSetAll(all); fillKlantSelect();
+}
+function klantSave(){
+  const naam=(document.getElementById('k_naam').value||'').trim();
+  if(!naam){ toast('Vul eerst een klantnaam in'); return; }
+  klantSaveSilent(); toast('Klant opgeslagen');
+}
+function fillKlantSelect(){
+  const sel=document.getElementById('klantKies'); if(!sel) return;
+  const all=klantGetAll().sort((a,b)=>a.naam.localeCompare(b.naam));
+  sel.innerHTML='<option value="">— Kies opgeslagen klant —</option>'+all.map(k=>`<option value="${esc(k.naam)}">${esc(k.naam)}</option>`).join('');
+}
+function klantUse(naam){
+  if(!naam) return;
+  const k=klantGetAll().find(x=>x.naam===naam); if(!k) return;
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||''; };
+  set('k_naam',k.naam); set('k_tel',k.tel); set('k_adres',k.adres); set('k_plaats',k.plaats); set('k_email',k.email);
+  saveSoon(); toast('Klant ingevuld');
+}
+
 /* ============ Start ============ */
 sigPad=makeSigPad(document.getElementById('sigPad'));
 (function(){ const g=document.getElementById('o_geldig'); if(g && !g.value){ const d=new Date(); d.setDate(d.getDate()+30); g.value=d.toISOString().slice(0,10); } })();
 const _restored=loadState();
 if(!_restored){ addKozijn(); }
+fillKlantSelect();
+document.getElementById('archiefModal').addEventListener('click', e=>{ if(e.target.id==='archiefModal') closeArchief(); });
 document.addEventListener('input', ()=>{ recalc(); saveSoon(); });
 document.addEventListener('change', ()=>{ recalc(); saveSoon(); });
 recalc();
 </script>
+<div id="archiefModal" class="modal-overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Archief — klanten &amp; bestellingen</h2>
+      <button class="modal-close" onclick="closeArchief()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" style="margin-top:0;">Zoek op bestelnummer of klantnaam en tik op “Openen” om er weer aan te werken.</p>
+      <input id="archiefZoek" class="arch-search" placeholder="🔍 Zoek op bestelnummer of klantnaam…" oninput="renderArchief(this.value)">
+      <div id="archiefLijst" class="arch-list"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 if('serviceWorker' in navigator){ window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
