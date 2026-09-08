@@ -606,6 +606,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   /* ---- Archief / modal / toast ---- */
   .modal-overlay{position:fixed; inset:0; background:rgba(27,30,37,.55); z-index:200; display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto;}
   .modal-overlay[hidden]{display:none !important;}
+  /* ---- Aanzicht / draairichting knoppen ---- */
+  .seg-row{display:flex; flex-wrap:wrap; gap:18px; margin:12px 0 4px;}
+  .seg-group{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .seg-lbl{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted);}
+  .segbtns{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+  .segbtns button{font-family:inherit; font-weight:600; font-size:13px; border:none; background:#fff; color:var(--ink-soft); padding:9px 13px; cursor:pointer; border-left:1px solid var(--line);}
+  .segbtns button:first-child{border-left:none;}
+  .segbtns button.on{background:var(--brass); color:#fff;}
+  .canvas-frame{position:relative;}
+  .aanzicht-badge{position:absolute; top:8px; left:8px; z-index:2; background:rgba(27,30,37,.85); color:#fff; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:4px 9px; border-radius:6px; pointer-events:none;}
   .modal{background:var(--card); border-radius:16px; width:100%; max-width:640px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden;}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
   .modal-head h2{margin:0; font-family:'Fraunces',serif; font-weight:600; font-size:18px;}
@@ -916,6 +926,12 @@ function makePad(canvas){
       return {type:'pen', color:it.color, size:it.size, points:r.points};
     });
     if(!changed) ctrl.undoStack.pop();   // niks veranderd: undo niet vervuilen
+    render(); saveSoon();
+  };
+  ctrl.mirror=function(){
+    if(!ctrl.items.length) return;
+    pushUndo();
+    ctrl.items = tplSpiegel(ctrl.items, LW/2);
     render(); saveSoon();
   };
   ctrl.toImage=function(){
@@ -1686,11 +1702,32 @@ function addKozijn(data, restoring){
         </div>
         <span class="sep"></span>
         <button class="tool magic" data-act="beauty">✨ Netjes maken</button>
+        <button class="tool" data-act="mirror">⇄ Spiegel</button>
         <button class="tool" data-act="undo">↺ Terug</button>
         <button class="tool" data-act="clear">Wissen</button>
       </div>
-      <div class="canvas-frame"><canvas class="pad"></canvas></div>
-      <p class="hint">Tik op &#8220;&#128208; Sjabloon&#8221; voor een kant-en-klaar voorbeeld, of teken zelf uit de losse hand en tik op “✨ Netjes maken” voor rechte lijnen. Met “T Tekst” tik je ergens en typ je een maat of tekst (bijv. 1200 mm) op de tekening. Niet goed? Tik op “↺ Terug”.</p>
+      <div class="canvas-frame"><span class="aanzicht-badge" data-aanzichtbadge hidden></span><canvas class="pad"></canvas></div>
+      <p class="hint">Tik op &#8220;&#128208; Sjabloon&#8221; voor een kant-en-klaar voorbeeld, of teken zelf uit de losse hand en tik op “✨ Netjes maken” voor rechte lijnen. Met “⇄ Spiegel” klap je de tekening links↔rechts om. Met “T Tekst” tik je ergens en typ je een maat of tekst (bijv. 1200 mm). Niet goed? Tik op “↺ Terug”.</p>
+      <div class="seg-row">
+        <div class="seg-group">
+          <span class="seg-lbl">Aanzicht</span>
+          <div class="segbtns" data-seg="aanzicht">
+            <button type="button" data-val="Buitenaanzicht">Buiten</button>
+            <button type="button" data-val="Binnenaanzicht">Binnen</button>
+          </div>
+        </div>
+        <div class="seg-group">
+          <span class="seg-lbl">Draairichting</span>
+          <div class="segbtns" data-seg="draai">
+            <button type="button" data-val="Links">⤺ Links</button>
+            <button type="button" data-val="Rechts">Rechts ⤻</button>
+            <button type="button" data-val="Dubbel">Dubbel</button>
+            <button type="button" data-val="Vast">Vast</button>
+          </div>
+        </div>
+        <input type="hidden" data-f="aanzicht" value="">
+        <input type="hidden" data-f="draai" value="">
+      </div>
       <div class="tpl-opts" data-tplopts hidden>
         <span class="lb">Sjabloon</span>
         <button class="tool" type="button" data-opt="spiegel">&#8646; Spiegelen</button>
@@ -1742,8 +1779,35 @@ function addKozijn(data, restoring){
   div.querySelector('[data-act="tpl"]').onclick=()=>openTpl(id);
   div.querySelectorAll('[data-opt]').forEach(b=>b.onclick=()=>tplOpt(id,b.dataset.opt));
   div.querySelector('[data-act="beauty"]').onclick=()=>ctrl.beautify();
+  div.querySelector('[data-act="mirror"]').onclick=()=>ctrl.mirror();
   div.querySelector('[data-act="undo"]').onclick=()=>ctrl.undo();
   div.querySelector('[data-act="clear"]').onclick=()=>ctrl.clear();
+
+  // aanzicht / draairichting segment-knoppen
+  div.querySelectorAll('.segbtns').forEach(group=>{
+    const key=group.dataset.seg;
+    const hidden=div.querySelector(`[data-f="${key}"]`);
+    group.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const on = b.classList.contains('on');
+      group.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      if(on){ hidden.value=''; }        // nogmaals tikken = uitzetten
+      else { b.classList.add('on'); hidden.value=b.dataset.val; }
+      syncBadge(); saveSoon(); recalc();
+    });
+  });
+  function syncBadge(){
+    const av=(div.querySelector('[data-f="aanzicht"]').value)||'';
+    const badge=div.querySelector('[data-aanzichtbadge]');
+    if(badge){ badge.textContent=av; badge.hidden=!av; }
+  }
+  function syncSegs(){
+    div.querySelectorAll('.segbtns').forEach(group=>{
+      const key=group.dataset.seg;
+      const v=(div.querySelector(`[data-f="${key}"]`).value)||'';
+      group.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.val===v));
+    });
+    syncBadge();
+  }
 
   // foto
   const photoIn=div.querySelector('[data-photo]');
@@ -1769,6 +1833,7 @@ function addKozijn(data, restoring){
 
   if(!restoring) div.scrollIntoView({behavior:'smooth', block:'center'});
   updatePriceLabels();
+  syncSegs();
   if(!restoring){ saveSoon(); recalc(); }
 }
 
@@ -1842,6 +1907,8 @@ function buildPdf(){
     addSpec('Merk / systeem', field(el,'merk'));
     addSpec('Glas', field(el,'glas'));
     addSpec('Uitvoering', field(el,'uitvoering'));
+    addSpec('Draairichting', field(el,'draai'));
+    addSpec('Aanzicht', field(el,'aanzicht'));
     addSpec('Kleur buiten', field(el,'kleur_buiten'));
     addSpec('Kleur binnen', field(el,'kleur_binnen'));
     addSpec('Rooster', field(el,'rooster'));
