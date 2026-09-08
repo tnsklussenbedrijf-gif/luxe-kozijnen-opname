@@ -1,4 +1,4 @@
-const CACHE = 'luxekozijn-v12';
+const CACHE = 'luxekozijn-v13';
 const ASSETS = [
   './',
   './index.html',
