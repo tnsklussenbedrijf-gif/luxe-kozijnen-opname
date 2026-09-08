@@ -1794,7 +1794,16 @@ function addKozijn(data, restoring){
       else { b.classList.add('on'); hidden.value=b.dataset.val; }
       if(key==='draai'){
         const nv=hidden.value;
-        if(nv==='Links'||nv==='Rechts'){
+        let st=null; try{ st=JSON.parse(div.dataset.tpl||'null'); }catch(e){}
+        const enkelRaam=['vast','draai-l','draai-r','dk-l','dk-r','stolpraam'];
+        if(st && enkelRaam.indexOf(st.id)>-1 && nv){
+          const kiep = st.id==='dk-l' || st.id==='dk-r';
+          const map = kiep
+            ? {Links:'dk-l', Rechts:'dk-r', Vast:'vast', Dubbel:'stolpraam'}
+            : {Links:'draai-l', Rechts:'draai-r', Vast:'vast', Dubbel:'stolpraam'};
+          const target=map[nv];
+          if(target){ tplApply(id, target, {}); if(nv==='Links'||nv==='Rechts') div.dataset.draaiShown=nv; }
+        } else if(nv==='Links'||nv==='Rechts'){
           const shown=div.dataset.draaiShown;
           if((shown==='Links'||shown==='Rechts') && shown!==nv){ ctrl.mirror(); }
           div.dataset.draaiShown=nv;
