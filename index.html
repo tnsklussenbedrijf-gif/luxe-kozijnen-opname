@@ -605,6 +605,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   .kleur-card{position:relative;}
   /* ---- Archief / modal / toast ---- */
   .modal-overlay{position:fixed; inset:0; background:rgba(27,30,37,.55); z-index:200; display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto;}
+  .modal-overlay[hidden]{display:none !important;}
   .modal{background:var(--card); border-radius:16px; width:100%; max-width:640px; box-shadow:0 20px 60px rgba(0,0,0,.3); overflow:hidden;}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--line);}
   .modal-head h2{margin:0; font-family:'Fraunces',serif; font-weight:600; font-size:18px;}
