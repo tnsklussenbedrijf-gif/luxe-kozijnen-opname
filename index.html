@@ -1792,6 +1792,14 @@ function addKozijn(data, restoring){
       group.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
       if(on){ hidden.value=''; }        // nogmaals tikken = uitzetten
       else { b.classList.add('on'); hidden.value=b.dataset.val; }
+      if(key==='draai'){
+        const nv=hidden.value;
+        if(nv==='Links'||nv==='Rechts'){
+          const shown=div.dataset.draaiShown;
+          if((shown==='Links'||shown==='Rechts') && shown!==nv){ ctrl.mirror(); }
+          div.dataset.draaiShown=nv;
+        }
+      }
       syncBadge(); saveSoon(); recalc();
     });
   });
@@ -1805,6 +1813,7 @@ function addKozijn(data, restoring){
       const key=group.dataset.seg;
       const v=(div.querySelector(`[data-f="${key}"]`).value)||'';
       group.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.val===v));
+      if(key==='draai' && (v==='Links'||v==='Rechts')) div.dataset.draaiShown=v;
     });
     syncBadge();
   }
